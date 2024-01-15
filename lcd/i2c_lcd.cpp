@@ -5,23 +5,26 @@
  *      Author: jajtn
  */
 
-#include "cmsis_os.h"
+//#include "cmsis_os.h"
 #include "i2c_lcd.hpp"
 #include "stm32l4xx_hal_i2c.h"
-#include "stm32l4xx_hal_dma.h"
-#include "i2c.h"
+#include "stm32l4xx_hal_tim.h"
 
-char defaultChars[] = "--------Initialization--------";
+
 const uint8_t rowTable[] = {0,2,1,3};
 
-LCD::
 
-LCD::LCD(I2C_HandleTypeDef *_hi2c)
+
+LCD::LCD(I2C_HandleTypeDef *hi2c)
 {
-	ASSERT_HANDLER(_hi2c);
+	ASSERT_PTR(hi2c);
+	m_addr = LCD_I2C_DEFAULT_ADDRESS;
+	m_hi2c = hi2c;
 
-	this->hi2c = _hi2c;
-	//this->hi2c->MasterTxCpltCallback = &this->txCallback;
+	m_inputBuff.s[LCD_MAX_CHAR-1] = '\0';
+
+	clear();
+	write("--------Initialization--------");
 
 	// 4 bit initialisation
 	HAL_Delay(50);  // wait for >40ms
@@ -45,16 +48,31 @@ LCD::LCD(I2C_HandleTypeDef *_hi2c)
 	HAL_Delay(1);
 	sendCommand(0x0C); //Display on/off control --> D = 1, C and B = 0. (Cursor and blink, last two bits)
 
-	clear();
-	write(defaultChars);
+
+
 }
 
-void LCD::write(char *str)
+LCD::LCD(I2C_HandleTypeDef *hi2c, uint8_t addr)
+{
+	ASSERT_PTR(hi2c);
+	m_addr = addr;
+	m_hi2c = hi2c;
+	init();
+}
+
+
+
+void LCD::init(void)
+{
+
+}
+
+void LCD::write(const char *str)
 {
 	writePosition(0, 0, str);
 }
 
-void LCD::writePosition(uint8_t row, uint8_t col, char *str)
+void LCD::writePosition(uint8_t row, uint8_t col, const char *str)
 {
 
 	if(row>LCD_MAX_ROW)
@@ -62,9 +80,9 @@ void LCD::writePosition(uint8_t row, uint8_t col, char *str)
 	if(col>LCD_MAX_COLS)
 		col = LCD_MAX_COLS;
 
-	while(true)
+	while(*str != '\0')
 	{
-		inputBuff.d[rowTable[row]][col++] = *str;
+		m_inputBuff.d[rowTable[row]][col++] = *str;
 		if(col>LCD_MAX_COLS)
 		{
 			col = 0;
@@ -73,10 +91,8 @@ void LCD::writePosition(uint8_t row, uint8_t col, char *str)
 				break;
 		}
 		str++;
-		if(*str == '\0')
-			break;
 	}
-	this->bufferState = BUFFER_UPDATED;
+	m_bufferState = BUFFER_UPDATED;
 }
 
 void LCD::clear()
@@ -84,9 +100,9 @@ void LCD::clear()
 
 	for(uint8_t i = 0; i<LCD_MAX_CHAR; i++)
 	{
-		inputBuff.s[i] = ' ';
+		m_inputBuff.s[i] = ' ';
 	}
-	this->bufferState = BUFFER_UPDATED;
+	m_bufferState = BUFFER_UPDATED;
 }
 
 void LCD::updateBuffer(char *str)
@@ -98,20 +114,20 @@ void LCD::updateBuffer(char *str)
 		data_u = ((*str)&0xf0);
 		data_l = (((*str)<<4)&0xf0);
 
-		this->buff[i]   = data_u|0x0D;
-		this->buff[i+1] = data_u|0x09;
-		this->buff[i+2] = data_l|0x0D;
-		this->buff[i+3] = data_l|0x09;
+		m_buff[i]   = data_u|0x0D;
+		m_buff[i+1] = data_u|0x09;
+		m_buff[i+2] = data_l|0x0D;
+		m_buff[i+3] = data_l|0x09;
 
 		str++;
 	}
 
-	this->bufferState = BUFFER_ENCODED;
+	m_bufferState = BUFFER_ENCODED;
 }
 
 void LCD::sendCommand(char cmd)
 {
-	ASSERT_HANDLER(this->hi2c);
+	ASSERT_PTR(m_hi2c);
 
 	char data_u, data_l;
 	uint8_t data_t[4];
@@ -119,29 +135,47 @@ void LCD::sendCommand(char cmd)
 	data_u = (cmd & 0xf0);
 	data_l = ((cmd<<4) & 0xf0);
 
-	data_t[0] = data_u|LCD_EXP_ENABLE;  	//en=1, rs=0
-	data_t[1] = data_u|LCD_EXP_DISABLE;  	//en=0, rs=0
-	data_t[2] = data_l|LCD_EXP_ENABLE;  	//en=1, rs=0
-	data_t[3] = data_l|LCD_EXP_DISABLE;  	//en=0, rs=0
+	data_t[0] = data_u|0x08;  	//en=1, rs=0
+	data_t[1] = data_u|0x0C;  	//en=0, rs=0
+	data_t[2] = data_l|0x08;  	//en=1, rs=0
+	data_t[3] = data_l|0x0C;  	//en=0, rs=0
 
-	HAL_I2C_Master_Transmit(hi2c, LCD_I2C_EXPANDER_ADDRESS,(uint8_t *) data_t, 4, 100);
+	HAL_I2C_Master_Transmit(m_hi2c, m_addr,(uint8_t *) data_t, 4, 200);
 }
 
 
 void LCD::update()
 {
+	ASSERT_PTR(m_hi2c);
+
 	HAL_StatusTypeDef retVal;
 
-	if(bufferState == BUFFER_UPDATED)
-		updateBuffer(inputBuff.s);
+	if(m_bufferState == BUFFER_UPDATED)
+		updateBuffer(m_inputBuff.s);
 
-	if(bufferState == BUFFER_ENCODED)
+	if(m_bufferState == BUFFER_ENCODED)
 	{
-		retVal = HAL_I2C_Master_Transmit_DMA(hi2c, LCD_I2C_EXPANDER_ADDRESS , (uint8_t*) buff, sizeof(buff));
+		retVal = HAL_I2C_Master_Transmit_DMA(m_hi2c, m_addr , (uint8_t*) m_buff, LCD_BUFF_LEN);
 		if(retVal == HAL_OK)
-			bufferState = BUFFER_UNCHANGED;
+			m_bufferState = BUFFER_UNCHANGED;
 	}
 
+}
+
+void LCD::setBrightness(uint8_t b)
+{
+	ASSERT_PTR(m_hi2c);
+	__HAL_TIM_SET_COMPARE(m_htim, m_channel, b);
+}
+
+void LCD::setPWMSource(TIM_HandleTypeDef *htim, uint32_t channel)
+{
+	ASSERT_PTR(htim);
+	m_htim = htim;
+	m_channel = channel;
+
+	__HAL_TIM_SET_AUTORELOAD(m_htim, 256);
+	HAL_TIM_PWM_Start(m_htim, m_channel);
 }
 
 

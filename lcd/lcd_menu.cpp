@@ -43,6 +43,7 @@ void MenuItem::onFocus()
 Menu::Menu()
 {
 	currentIndex_m = 0;
+	itemNo_m = 0;
 }
 
 void Menu::addItem(MenuItem *item_)
@@ -55,6 +56,25 @@ void Menu::addItem(MenuItem *item_)
 		items_m[itemNo_m] = item_;
 		itemNo_m++;
 	}
+}
+
+void Menu::deleteItem(MenuItem *item_)
+{
+	if(item_ == nullptr)
+		return;
+
+	if(itemNo_m == 0)
+		return;
+
+	for(uint8_t i=0; i<itemNo_m; i++)	// find item
+	{
+		if(items_m[i] == item_)
+			break;
+	}
+
+	for(uint8_t k=i; k<itemNo_m-1;k++)	// reorder items
+		items_m[k] = itmes_m[k+1];
+
 }
 
 void Menu::up()

@@ -17,16 +17,16 @@
 #define LCD_MAX_ROW				 (LCD_NO_ROWS-1)
 #define LCD_NO_COLS				 20
 #define LCD_MAX_COLS			 (LCD_NO_COLS-1)
-#define LCD_MAX_CHAR			 (LCD_NO_ROWS*LCD_NO_COLS)
+#define LCD_MAX_CHAR			 (LCD_NO_ROWS*LCD_NO_COLS+1)
 #define LCD_BUFF_LEN 			 (4*LCD_MAX_CHAR)
 #define LCD_I2C_DEFAULT_ADDRESS  0x4E
 
 #define USE_ASSERT_HANDLER
 
 #ifdef USE_ASSERT_HANDLER
-	#define ASSERT_HANDLER(h) if(h == NULL) return
+	#define ASSERT_PTR(h) if(h == NULL) return
 #else
-	#define ASSERT_HANDLER(h)
+	#define ASSERT_PTR(h)
 #endif
 
 typedef union{
@@ -57,25 +57,30 @@ typedef enum
 class LCD{
 
 public:
-	LCD();
+	LCD(I2C_HandleTypeDef *hi2c);
 	LCD(I2C_HandleTypeDef *hi2c, uint8_t addr);
-
 private:
 
-	inputBuff_t inputBuff;
-	char buff[LCD_BUFF_LEN];
-	I2C_HandleTypeDef *hi2c;
-	bufferState_t bufferState;
-	uint8_t _addr;
+	inputBuff_t m_inputBuff;
+	char m_buff[LCD_BUFF_LEN];
+	I2C_HandleTypeDef *m_hi2c;
+	TIM_HandleTypeDef *m_htim;
+	uint32_t m_channel;
+	bufferState_t m_bufferState;
+	uint8_t m_addr;
+	uint8_t m_brightness;
 
+	void init(void);
 	void updateBuffer(char *str);
 	void sendCommand(char cmd);
 
 public:
 
+	void setPWMSource(TIM_HandleTypeDef *htim, uint32_t channel);
+	void setBrightness(uint8_t b);
 	void update(void);
-	void write(char *str);
-	void writePosition(uint8_t row, uint8_t col, char *str);
+	void write(const char *str);
+	void writePosition(uint8_t row, uint8_t col, const char *str);
 	void clear(void);
 
 };

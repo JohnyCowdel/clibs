@@ -44,7 +44,7 @@ private:
 
 };
 
-
+/* */
 class Menu
 {
 	Menu();
@@ -56,7 +56,7 @@ public:
 	void down();
 private:
 	int8_t currentIndex_m;
-	MenuItem *items_m[ITEMS_IN_MENU];
+	MenuItem *items_m[ITEMS_IN_MENU];	//preallocated number of items
 	uint8_t itemNo_m;
 };
 
