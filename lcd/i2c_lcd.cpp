@@ -6,14 +6,17 @@
  */
 
 //#include "cmsis_os.h"
+#include "defines.h"
 #include "i2c_lcd.hpp"
+
+#ifndef SIMULATOR
 #include "stm32l4xx_hal_i2c.h"
 #include "stm32l4xx_hal_tim.h"
-
+#else
+#include ""
+#endif
 
 const uint8_t rowTable[] = {0,2,1,3};
-
-
 
 LCD::LCD(I2C_HandleTypeDef *hi2c)
 {
@@ -47,8 +50,6 @@ LCD::LCD(I2C_HandleTypeDef *hi2c)
 	sendCommand(0x06); //Entry mode set --> I/D = 1 (increment cursor) & S = 0 (no shift)
 	HAL_Delay(1);
 	sendCommand(0x0C); //Display on/off control --> D = 1, C and B = 0. (Cursor and blink, last two bits)
-
-
 
 }
 

@@ -5,6 +5,8 @@
  *      Author: jajtn
  */
 
+#include "utilities.h"
+
 #define ASCII_FIELD_LENGTH	13
 #define POW_TABLE_LEN       10
 #define POW_TABLE_END       (POW_TABLE_LEN - 1)
@@ -55,9 +57,9 @@ char *memSet(char symbol, char *dest, uint8_t len)
 char *copyString(char *source, char *dest)
 {
 	if(source == NULL || dest == NULL)
-		return;
+		return source;
 
-	while( *source != '\0')
+	while( (*source) != '\0')
 		*dest++ = *source++;
 
 	*dest = '\0';
@@ -71,8 +73,6 @@ char *copyChar(char *source, char *dest, uint8_t length)
 	{
 		*dest++ = *source++;
 	}
-
-	*dest = '\0';
 
 	return dest;
 }
@@ -154,7 +154,7 @@ char* uchar2ascii(uint8_t i)
 	return uint2ascii((uint32_t) i);
 }
 
-char* float2ascii(float f)
+char* float2ascii(float fn)
 {
 
 	int noChars, idx;

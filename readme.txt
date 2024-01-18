@@ -1,1 +1,1 @@
-readme
+C libraries for embedded applications

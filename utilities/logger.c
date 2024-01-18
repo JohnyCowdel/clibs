@@ -12,73 +12,114 @@
 #include "logger.h"
 #include "utilities.h"
 
-static const char severity[][] = { "[Trace]",
-                                   "[Debug]",
-                                   "[Info]",
-                                   "[Warn]",
-                                   "[Error]",
-                                   "[Fatal]", }
+static const char *severity[] =     {"[Trace]: ",
+                                     "[Debug]: ",
+                                     "[Info]: ",
+                                     "[Warn]: ",
+                                     "[Error]: ",
+                                     "[Fatal]: ", };
 
-static LOG_logger_t logger;                                //!< logger instance
+static LOG_logger_t logger = {.lvl = 0, .head = 0 };                                //!< logger instance
 
+void LOG_setLevel(LOG_level_t level)    {logger.lvl = level;}
+char* LOG_getBuff(void) { return logger.buff[logger.head]; }
+char* LOG_getPosition(void) { return  &logger.buff[logger.head][logger.len[logger.head]]; }
+uint16_t LOG_getLen(void) { return (logger.len[logger.head]); }
+uint16_t LOG_getRemain(void) { return (LOGGER_BUFF_LEN - logger.len[logger.head]); }
 
-LOG_errMessage_t LOG_addString(char *s, LOG_level_t level)
+void LOG_switchBuff(void) 
+{
+    logger.len[logger.head] = 0;
+    logger.head = (~logger.head) & 0x01; 
+}
+
+LOG_errMessage_t LOG_addLogInt(const char* s, int i, LOG_level_t level)
 {
 
+    if (level < logger.lvl)
+        return LOG_INVALID_LEVEL;
+    LOG_addString(severity[level]);
+    LOG_addString(s);
+    LOG_addInt(i);
+    return LOG_addString("\n\0");
+}
+
+
+LOG_errMessage_t LOG_addLogFloat(const char* s, float f, LOG_level_t level)
+{
+    if (level <  logger.lvl)
+        return LOG_INVALID_LEVEL;
+    LOG_addString(severity[level]);
+    LOG_addString(s);
+    LOG_addFloat(f);
+    return LOG_addString("\n\0");
+}
+
+LOG_errMessage_t LOG_addLog(const char* s, LOG_level_t level)
+{
+    if(level < logger.lvl)
+        return LOG_INVALID_LEVEL;
+    LOG_addString(severity[level]);
+    LOG_addString(s);
+    return LOG_addString("\n\0");
+}
+
+LOG_errMessage_t LOG_addString(char *s)
+{
+    char* str = s;
     uint16_t len = 0;
-    while((*s != 0) && (len< LOGGER_MSG_LEN))
+    while((*str != 0) && (len < LOGGER_MSG_LEN))
     {
         len++;
-        s++;
-    } 
-    
+        str++;
+    }
+      
     if (len==0)
         return LOG_EMPTY_STR;
-    
-    if((logger.len != 0) && (UARTx.getTxSize() > logger.len))       // aux buffer non-empty and enough space in tx buffer?
+     
+    if (len < LOG_getRemain())
     {
-        UARTx.writeBuffer(logger.loggerBuff, logger.len);           // send aux buffer content    
-        logger.len = 0;
-    }
-    
-    if(UARTx.getTxSize() >= len)                                    // if there's still enough room remaining send the rest
-        UARTx.writeBuffer((uint8_t *)s, len);
-    else if((logger.len + len) < LOGGER_BUFF_LEN)                    // else copy our input to aux buffer
-    {
-        Copy((uint8_t *)s, logger.loggerBuff, len);                       
-        logger.len += len;
+        copyChar(s, LOG_getPosition(),len);
+        logger.len[logger.head] += len;
     }
     else
-        return LOG_FAILED_ADD;                              // if everything fails 
-        
+        return LOG_FAILED_ADD;
+
     return LOG_OK;
 }
 
 LOG_errMessage_t LOG_addChar(int8_t data)
 {
-    uint8_t *s;
+    char *s;
     s = char2ascii(data);
-    return LOG_addString((char*) s);
+    return LOG_addString( s);
 }
 
 LOG_errMessage_t LOG_addShort(int16_t data)
 {
-    uint8_t *s;
+    char *s;
     s = short2ascii(data);
-    return LOG_addString((char*) s);
+    return LOG_addString(s);
 }
 
 LOG_errMessage_t LOG_addInt(int32_t data)
 {
-    uint8_t *s;
+    char *s;
     s = int2ascii(data);
-    return LOG_addString((char*) s);
+    return LOG_addString(s);
+}
+
+LOG_errMessage_t LOG_addFloat(float data)
+{
+    char *s;
+    s = float2ascii(data);
+    return LOG_addString(s);
 }
 
 LOG_errMessage_t LOG_addUInt(uint32_t data)
 {
-    uint8_t *s;
+    char *s;
     s = uint2ascii(data);
-    return LOG_addString((char*)s);
+    return LOG_addString(s);
 }
 
